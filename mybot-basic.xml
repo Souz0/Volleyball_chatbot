@@ -56,6 +56,9 @@
 <category><pattern> WHO IS * </pattern>
   <template><srai>WHAT IS A <star/></srai></template></category>
 
+<category><pattern> WHERE IS * </pattern>
+  <template><srai>WHAT IS A <star/></srai></template></category>
+
 <!-- Default reaction -->
 <category><pattern> * </pattern>
   <template>#99$<star index="1"/></template></category>

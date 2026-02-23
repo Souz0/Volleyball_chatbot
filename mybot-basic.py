@@ -1,12 +1,11 @@
 ﻿#!/usr/bin/env python3
+import time
+if not hasattr(time, 'clock'):
+    time.clock = time.perf_counter
 
-# A basic chatbot design --- a starting point for developing your own chatbot
-
-#######################################################
-#  Initialise AIML agent
 import aiml
 import wikipedia
-import fivbis
+import fivbvis
 # Create a Kernel object. 
 kern = aiml.Kernel()
 kern.setTextEncoding(None)
@@ -41,6 +40,14 @@ while True:
                 print(wSummary)
             except:
                 print("Sorry, I do not know that. Be more specific!")
+        elif cmd ==2:
+            match_id = params[1]
+            v = fivbvis.Volleyball()
+            # Get the data, requesting specific fields to make the response clear
+            match_data = v.getVolleyMatch(no=match_id, fields="City TeamNameA TeamNameB DateLocal ScoreA ScoreB")
+            # Parse match_data (you'll need to handle the XML/JSON) and print a nice response
+            print(
+                f"Match {match_id} was played in {match_data.City} on {match_data.DateLocal}. The score was {match_data.TeamNameA} {match_data.ScoreA} - {match_data.ScoreB} {match_data.TeamNameB}.")
         elif cmd == 99:
             print("I did not get that, please try again.")
     else:
