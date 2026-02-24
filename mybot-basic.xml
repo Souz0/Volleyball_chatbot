@@ -16,13 +16,47 @@
 <category> <pattern> HOW ARE YOU </pattern>
   <template>I'm functioning within normal parameters, thanks for asking.</template></category>
 
+<category> <pattern> * HOW ARE YOU </pattern>
+  <template><srai>HOW ARE YOU</srai></template> </category>
+
+<category> <pattern> HOW ARE YOU * </pattern>
+  <template><srai>HOW ARE YOU</srai></template> </category>
+
+<category> <pattern> * HOW ARE YOU * </pattern>
+  <template><srai>HOW ARE YOU</srai></template> </category>
+
 <category><pattern> I AM FINE </pattern>
   <template>That's good to know. What would you like to discuss about?</template></category>
 
 <category><pattern> BYE </pattern>
   <template>#0$Bye! Nice talking to you. You take care now.</template></category>
 
+
 <category><pattern> GOODBYE </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> BYE * </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> GOODBYE * </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> * BYE * </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> * GOODBYE * </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> * BYE </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> * BYE *</pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> THANK YOU AND GOODBYE </pattern>
+  <template><srai>BYE</srai></template></category>
+
+<category><pattern> BYE BYE </pattern>
   <template><srai>BYE</srai></template></category>
 
 <category><pattern> EXIT </pattern>
@@ -53,11 +87,32 @@
 <category><pattern> DEFINE * </pattern>
   <template><srai>WHAT IS A <star/></srai></template></category>
 
+<category><pattern> TELL ME ABOUT * </pattern>
+  <template><srai>WHAT IS A <star/></srai></template></category>
+
 <category><pattern> WHO IS * </pattern>
   <template><srai>WHAT IS A <star/></srai></template></category>
 
-<category><pattern> WHERE IS * </pattern>
-  <template><srai>WHAT IS A <star/></srai></template></category>
+<!-- FIVB match patterns -->
+<category>
+    <pattern> VOLLEYBALL MATCH * </pattern>
+    <template>#2$<star/></template>
+</category>
+
+<category><pattern> MATCH ID * </pattern>
+  <template><srai>VOLLEYBALL MATCH <star/></srai></template></category>
+
+<category><pattern> MATCH * </pattern>
+  <template><srai>VOLLEYBALL MATCH <star/></srai></template></category>
+
+<category><pattern> WHAT IS MATCH * </pattern>
+  <template><srai>VOLLEYBALL MATCH <star/></srai></template></category>
+
+<category><pattern> TELL ME ABOUT MATCH * </pattern>
+  <template><srai>VOLLEYBALL MATCH <star/></srai></template></category>
+
+
+
 
 <!-- Default reaction -->
 <category><pattern> * </pattern>
