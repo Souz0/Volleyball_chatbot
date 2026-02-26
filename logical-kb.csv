@@ -1,2 +1,10 @@
-(Austrian (x) | Belgian(x) | Bulgarian(x) | Croatian(x) | Cypriot(x) | Czech(x) | Danish(x) | Estonian(x) | Finnish(x) | French(x) | German(x) | Greek(x) | Hungarian(x) | Irish(x) | Italian(x) | Latvian(x) | Lithuanian(x) | Luxembourger(x) | Maltan(x) | Dutch(x) | Polish(x) | Portugese(x) | Romanian(x) | Slovakian(x) | Slovenian(x) | Spanish(x) | Sweedish(x)) -> European (x)
-(Austria | Belgium) -> Europe
+(Poland (x) | Italy (x) | France (x) | Slovenia (x) | Bulgaria (x) | Germany (x) | Serbia (x) | Belgium (x) Czech Republic (x) | Finland (x) | Netherlands (x)) -> Europe (x)
+(Polish (x) | Italian (x) | French (x) | Slovenian (x) | Bulgarian (x) | German (x) | Serbian (x) | Belgian (x) Czech (x) | Finnish (x) | Dutch (x)) -> European (x)
+Japan (x) | Turkey (x) | China (x) | Thailand (x) -> Asia (x)
+Japanese (x) | Turkish (x) | Chinese (x) -> Asian (x)
+USA (x) | Canada (x) | Cuba (x) | Dominican Republic (x) | Mexico (x) -> North America (x)
+American (x) | Canadian (x) | Cuban (x) | Dominican (x) | Mexican (x) -> North American (x)
+Iran (x) -> Middle East (x)
+Iranian (x) -> Middle Eastern (x) 
+Brazil (x) | Argentina (x) -> South America (x)
+Brazillian (x) | Argentinian (x) -> South American (x)
