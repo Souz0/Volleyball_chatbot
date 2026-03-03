@@ -5,7 +5,6 @@ if not hasattr(time, 'clock'):
     time.clock = time.perf_counter
 import xml.etree.ElementTree as ET
 import aiml
-import wikipedia
 import fivbvis
 from fivbvis import Article
 
@@ -15,8 +14,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import re
 import nltk
+import unicodedata
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
+from nltk.sem import Expression
+from nltk.inference import ResolutionProver
 
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -25,7 +27,86 @@ nltk.download('wordnet', quiet=True)
 kern = aiml.Kernel()
 kern.setTextEncoding(None)
 kern.bootstrap(learnFiles="mybot-basic.xml")
+read_expr = Expression.fromstring
 
+
+prover = ResolutionProver()
+
+def make_fact(obj: str, subj: str):
+    """Build Pred(Const) with your sanitiser."""
+    o = safe_symbol(obj)
+    s = safe_symbol(subj)
+    return read_expr(f"{s}({o})")
+
+def negate(expr):
+    """Return the negation of an expression as an NLTK logic Expression."""
+    return read_expr(f"-({expr})")
+
+def kb_entails(expr, kb):
+    """True iff KB ⊨ expr (resolution succeeds)."""
+    return prover.prove(expr, kb, verbose=False)
+
+def kb_contradicts(expr, kb):
+    """True iff KB ⊨ ¬expr (i.e., adding expr would contradict KB)."""
+    return kb_entails(negate(expr), kb)
+
+
+def safe_symbol(t: str) -> str:
+    t = (t or "").strip()
+    t = unicodedata.normalize("NFKD", t)
+    t = "".join(ch for ch in t if not unicodedata.combining(ch))
+    t = re.sub(r"[^\w\s]", "", t)      # drop punctuation like ?
+    t = re.sub(r"\s+", "_", t)         # spaces -> underscores
+    if t and t[0].isdigit():
+        t = "_" + t
+    return t
+
+read_expr = Expression.fromstring
+
+def normalize_logic_row(s: str) -> str:
+    if not isinstance(s, str):
+        return s
+
+    # Replace multi-word symbols that are immediately followed by "( ... )"
+    def repl(m):
+        name = m.group(1)
+        args = m.group(2)
+        safe = re.sub(r"\s+", "_", name.strip())
+        return f"{safe}({args})"
+
+    s = re.sub(r"([A-Za-z][A-Za-z\s]*?)\s*\(\s*([^)]+?)\s*\)", repl, s)
+
+    # Optional: normalize stray "Europe (x)" style spacing if any remains
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+kb = []
+data = pd.read_csv("logical-kb-fast.csv", header=None, encoding="utf-8")
+
+for raw in data[0].astype(str):
+    row = normalize_logic_row(raw)
+    kb.append(read_expr(row))
+
+# Fast contradiction check: looks for explicit P(a) and -P(a) in the KB
+pos = set()
+neg = set()
+
+for e in kb:
+    s = str(e).strip().replace(" ", "")
+    # only consider atomic facts like P(a) or -P(a)
+    if "->" in s or s.startswith("all") or "&" in s or "|" in s:
+        continue
+    if s.startswith("-"):
+        neg.add(s[1:])   # store without the '-'
+    else:
+        pos.add(s)
+
+contradictions = sorted(pos.intersection(neg))
+
+if contradictions:
+    print("WARNING: KB contains explicit contradictions, e.g.:")
+    for c in contradictions[:5]:
+        print("  ", c, "and -(" + c + ")")
 
 class VolleyballQA:
     def __init__(self, csv_file_name="q&a-kb.csv"):
@@ -117,16 +198,6 @@ while True:
                 print(csv_answer)
             else:
                 print("I did not get that, please try again.")
-
-        # If it's command 1 (Wikipedia), process it
-        elif cmd == 1:
-            try:
-                wSummary = wikipedia.summary(params[1], sentences=3, auto_suggest=True)
-                print(wSummary)
-            except:
-                print("Sorry, I do not know that. Be more specific!")
-
-        # If it's command 2 (Volleyball match), process it
         elif cmd == 2:
             match_id = params[1]
             try:
@@ -179,6 +250,32 @@ while True:
             except Exception as e:
                 print(f"Sorry, I couldn't find that volleyball match. Error: {e}")
 
+
+        elif cmd == 3:
+            obj, subj = params[1].split(' is ')
+            expr = make_fact(obj, subj)
+
+            # If KB already entails it, just acknowledge.
+            if kb_entails(expr, kb):
+                print(f"OK, I already know that {obj} is {subj}.")
+            # If KB entails the negation, it's a contradiction -> reject.
+            elif kb_contradicts(expr, kb):
+                print(f"Sorry, that contradicts what I already know about {obj}.")
+            else:
+                kb.append(expr)
+                print(f"OK, I will remember that {obj} is {subj}.")
+
+
+        elif cmd == 4:
+            obj, subj = params[1].split(' is ')
+            expr = make_fact(obj, subj)
+
+            if kb_entails(expr, kb):
+                print("Correct")
+            elif kb_entails(negate(expr), kb):
+                print("Incorrect")
+            else:
+                print("I don't know")
         # If it's command 0 (exit), handle it
         elif cmd == 0:
             print(params[1])
