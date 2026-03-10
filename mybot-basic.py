@@ -19,6 +19,15 @@ from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
 from nltk.sem import Expression
 from nltk.inference import ResolutionProver
+from tensorflow import keras
+from PIL import Image
+from tkinter import Tk, filedialog
+
+IMG_SIZE = 160  # use the same size that gave your best results
+
+IMAGE_CLASSES = ['basketball', 'football', 'golf_ball', 'tennis_ball', 'volleyball']
+
+model = keras.models.load_model("sports_ball_classifier.h5")
 
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
@@ -199,6 +208,44 @@ class VolleyballQA:
             return self.knowledge_base.iloc[best_idx, 1]
         return None
 
+def classify_image_file(file_path):
+    try:
+        img = Image.open(file_path).convert("RGB")
+        img = img.resize((IMG_SIZE, IMG_SIZE))
+
+        img_array = np.array(img, dtype=np.float32)
+        img_array = np.expand_dims(img_array, axis=0)
+
+        preds = model.predict(img_array, verbose=0)[0]
+
+        best_idx = int(np.argmax(preds))
+        best_label = IMAGE_CLASSES[best_idx]
+        best_confidence = float(preds[best_idx])
+
+
+        return best_label, best_confidence
+
+    except Exception as e:
+        print("Error classifying image:", e)
+        return None, None
+
+
+def choose_image_file():
+    root = Tk()
+    root.withdraw()
+    root.attributes('-topmost', True)
+
+    file_path = filedialog.askopenfilename(
+        title="Select an image",
+        filetypes=[
+            ("Image files", "*.jpg *.jpeg *.png *.bmp *.webp"),
+            ("All files", "*.*")
+        ]
+    )
+
+    root.destroy()
+    return file_path
+
 
 print(
     "Welcome to this chat bot. Please feel free to ask questions from me!\n"
@@ -300,7 +347,17 @@ while True:
                 print("I don't know (the knowledge base is inconsistent)")
             else:
                 print("I don't know")
-
+        elif cmd == 5:
+            file_path = choose_image_file()
+            if not file_path:
+                print("No image selected.")
+            else:
+                label, confidence = classify_image_file(file_path)
+                if label is None:
+                    print("Sorry, I couldn't classify that image.")
+                else:
+                    pretty_label = label.replace("_", " ")
+                    print(f"I think this image contains a {pretty_label} ({confidence:.1%} confidence).")
         elif cmd == 0:
             print(params[1])
             break

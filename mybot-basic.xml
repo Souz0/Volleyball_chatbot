@@ -101,7 +101,10 @@
 <category><pattern> CHECK THAT * IS *</pattern>
   <template>#4$<star index="1"/> is <star index="2"/></template></category>
 
-
+<category>
+    <pattern> WHAT IS IN THIS IMAGE </pattern>
+    <template>#5$<star/></template>
+</category>
 <!-- Default reaction -->
 <category><pattern> * </pattern>
   <template>#99$<star index="1"/></template></category>
