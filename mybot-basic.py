@@ -27,7 +27,7 @@ IMG_SIZE = 160  # use the same size that gave your best results
 
 IMAGE_CLASSES = ['basketball', 'football', 'golf_ball', 'tennis_ball', 'volleyball']
 
-model = keras.models.load_model("sports_ball_classifier.h5")
+model = keras.models.load_model("best_sports_ball_classifier.keras")
 
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
