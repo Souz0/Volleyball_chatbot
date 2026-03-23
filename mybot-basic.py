@@ -67,7 +67,10 @@ def safe_constant(text: str) -> str:
         text = "C_" + text
     return text[0].upper() + text[1:]
 
+
+# Expanded alias / synonym layer
 POSITION_ALIASES = {
+    # basic positions
     "setter": "Setter",
     "middle blocker": "MiddleBlocker",
     "middle_blocker": "MiddleBlocker",
@@ -75,33 +78,122 @@ POSITION_ALIASES = {
     "outside hitter": "OutsideHitter",
     "outside_hitter": "OutsideHitter",
     "outsidehitter": "OutsideHitter",
+    "wing spiker": "OutsideHitter",
     "opposite": "Opposite",
+    "opposite hitter": "Opposite",
+    "opposite spiker": "Opposite",
     "libero": "Libero",
+    "defensive specialist": "Libero",
+
+    # higher-level volleyball categories
+    "defensive role": "DefensiveRole",
+    "playmaker": "Playmaker",
+    "attacker": "Attacker",
+    "front row player": "FrontRowPlayer",
+    "back row player": "BackRowPlayer",
 }
 
+# If the left side of "X is Y" is one of these, treat it as a concept/class,
+# so "setter is playmaker" becomes:
+#   all x. (Setter(x) -> Playmaker(x))
+CONCEPT_TERMS = {
+    "setter",
+    "middle blocker",
+    "middle_blocker",
+    "middleblocker",
+    "outside hitter",
+    "outside_hitter",
+    "outsidehitter",
+    "wing spiker",
+    "opposite",
+    "opposite hitter",
+    "opposite spiker",
+    "libero",
+    "defensive specialist",
+    "defensive role",
+    "playmaker",
+    "attacker",
+    "front row player",
+    "back row player",
+}
+
+
+def normalize_free_text(text: str) -> str:
+    text = (text or "").strip().lower()
+    text = unicodedata.normalize("NFKD", text)
+    text = "".join(ch for ch in text if not unicodedata.combining(ch))
+    text = re.sub(r"[^\w\s]", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 def canonical_predicate(text: str) -> str:
-    raw = (text or "").strip().lower()
-    raw = unicodedata.normalize("NFKD", raw)
-    raw = "".join(ch for ch in raw if not unicodedata.combining(ch))
-    raw = re.sub(r"[^\w\s]", "", raw)
-    raw = re.sub(r"\s+", " ", raw).strip()
+    raw = normalize_free_text(text)
 
     if raw in POSITION_ALIASES:
         return POSITION_ALIASES[raw]
 
     return safe_predicate(text)
 
+
+def is_concept_term(text: str) -> bool:
+    return normalize_free_text(text) in CONCEPT_TERMS
+
+
+def split_is_statement(text: str):
+    """
+    Safely split strings like:
+      'Simeon Nikolov is setter'
+      'setter is playmaker'
+    into (left, right).
+    """
+    parts = re.split(r"\s+is\s+", text, maxsplit=1, flags=re.IGNORECASE)
+    if len(parts) != 2:
+        return None, None
+    return parts[0].strip(), parts[1].strip()
+
+
 def make_fact(obj: str, subj: str):
     predicate = canonical_predicate(subj)
     constant = safe_constant(obj)
     return read_expr(f"{predicate}({constant})")
+
+
+def make_rule(left: str, right: str):
+    left_pred = canonical_predicate(left)
+    right_pred = canonical_predicate(right)
+    return read_expr(f"all x. ({left_pred}(x) -> {right_pred}(x))")
+
+
+def make_logic_expr(left: str, right: str):
+    """
+    Second reasoning layer:
+    - If left is a concept term, build a taxonomy rule.
+      Example:
+          setter is playmaker
+      becomes:
+          all x. (Setter(x) -> Playmaker(x))
+
+    - Otherwise build a normal fact.
+      Example:
+          Simeon Nikolov is setter
+      becomes:
+          Setter(Simeon_Nikolov)
+    """
+    if is_concept_term(left):
+        return make_rule(left, right)
+    return make_fact(left, right)
+
 
 def negate(expr):
     return read_expr(f"-({expr})")
 
 
 def kb_entails(expr, kb):
-    return prover.prove(expr, kb, verbose=False)
+    try:
+        return prover.prove(expr, kb, verbose=False)
+    except Exception:
+        return False
 
 
 def expr_in_kb(expr, kb):
@@ -208,6 +300,7 @@ class VolleyballQA:
             return self.knowledge_base.iloc[best_idx, 1]
         return None
 
+
 def classify_image_file(file_path):
     try:
         img = Image.open(file_path).convert("RGB")
@@ -221,7 +314,6 @@ def classify_image_file(file_path):
         best_idx = int(np.argmax(preds))
         best_label = IMAGE_CLASSES[best_idx]
         best_confidence = float(preds[best_idx])
-
 
         return best_label, best_confidence
 
@@ -321,20 +413,30 @@ while True:
                 print(f"Sorry, I couldn't find that volleyball match. Error: {e}")
 
         elif cmd == 3:
-            obj, subj = params[1].split(' is ')
-            expr = make_fact(obj, subj)
+            left, right = split_is_statement(params[1])
+
+            if left is None:
+                print("Sorry, I could not understand that logical statement.")
+                continue
+
+            expr = make_logic_expr(left, right)
 
             if expr_in_kb(expr, kb):
-                print(f"OK, I already know that {obj} is {subj}.")
+                print(f"OK, I already know that {left} is {right}.")
             elif kb_entails(negate(expr), kb):
-                print(f"Sorry, that contradicts what I already know about {obj}.")
+                print(f"Sorry, that contradicts what I already know.")
             else:
                 kb.append(expr)
-                print(f"OK, I will remember that {obj} is {subj}.")
+                print(f"OK, I will remember that {left} is {right}.")
 
         elif cmd == 4:
-            obj, subj = params[1].split(' is ')
-            expr = make_fact(obj, subj)
+            left, right = split_is_statement(params[1])
+
+            if left is None:
+                print("Sorry, I could not understand that logical query.")
+                continue
+
+            expr = make_logic_expr(left, right)
 
             positive = kb_entails(expr, kb)
             negative = kb_entails(negate(expr), kb)
@@ -347,6 +449,7 @@ while True:
                 print("I don't know (the knowledge base is inconsistent)")
             else:
                 print("I don't know")
+
         elif cmd == 5:
             file_path = choose_image_file()
             if not file_path:
@@ -358,6 +461,7 @@ while True:
                 else:
                     pretty_label = label.replace("_", " ")
                     print(f"I think this image contains a {pretty_label} ({confidence:.1%} confidence).")
+
         elif cmd == 0:
             print(params[1])
             break
