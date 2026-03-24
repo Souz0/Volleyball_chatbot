@@ -7,7 +7,6 @@ if not hasattr(time, 'clock'):
 import xml.etree.ElementTree as ET
 import aiml
 import fivbvis
-from fivbvis import Article
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -23,7 +22,7 @@ from tensorflow import keras
 from PIL import Image
 from tkinter import Tk, filedialog
 
-IMG_SIZE = 160  # use the same size that gave your best results
+IMG_SIZE = 160  # use the same size that gave best results
 
 IMAGE_CLASSES = ['basketball', 'football', 'golf_ball', 'tennis_ball', 'volleyball']
 
