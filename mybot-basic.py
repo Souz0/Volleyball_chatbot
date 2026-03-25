@@ -1,9 +1,12 @@
 ﻿#!/usr/bin/env python3
+
+# This keeps compatibility with libraries that still expect time.clock().
 import time
 
 if not hasattr(time, 'clock'):
     time.clock = time.perf_counter
 
+# These imports provide XML parsing, AIML, the volleyball API, CSV handling, similarity matching, logic, image classification, and file selection.
 import xml.etree.ElementTree as ET
 import aiml
 import fivbvis
@@ -22,25 +25,31 @@ from tensorflow import keras
 from PIL import Image
 from tkinter import Tk, filedialog
 
-IMG_SIZE = 160  # use the same size that gave best results
+# This sets the image size expected by the trained CNN model.
+IMG_SIZE = 160
 
+# These are the output classes used by the image classifier.
 IMAGE_CLASSES = ['basketball', 'football', 'golf_ball', 'tennis_ball', 'volleyball']
 
+# This loads the saved image classification model.
 model = keras.models.load_model("best_sports_ball_classifier.keras")
 
+# These downloads provide the NLTK resources needed for stopwords and lemmatization.
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
 
-# Create a Kernel object.
+# This creates and loads the AIML chatbot rules.
 kern = aiml.Kernel()
 kern.setTextEncoding(None)
 kern.bootstrap(learnFiles="mybot-basic.xml")
 
+# These objects are used for first-order logic parsing and logical inference.
 read_expr = Expression.fromstring
 prover = ResolutionProver()
 KB_FILE = "logical-kb-bulgaria-men.csv"
 
 
+# This converts free text into a safe logical predicate name.
 def safe_predicate(text: str) -> str:
     text = (text or "").strip()
     text = unicodedata.normalize("NFKD", text)
@@ -54,6 +63,7 @@ def safe_predicate(text: str) -> str:
     return text[0].upper() + text[1:]
 
 
+# This converts a name into a safe logical constant.
 def safe_constant(text: str) -> str:
     text = (text or "").strip()
     text = unicodedata.normalize("NFKD", text)
@@ -67,9 +77,8 @@ def safe_constant(text: str) -> str:
     return text[0].upper() + text[1:]
 
 
-# Expanded alias / synonym layer
+# This maps alternative volleyball terms to the canonical predicates used in the knowledge base.
 POSITION_ALIASES = {
-    # basic positions
     "setter": "Setter",
     "middle blocker": "MiddleBlocker",
     "middle_blocker": "MiddleBlocker",
@@ -83,8 +92,6 @@ POSITION_ALIASES = {
     "opposite spiker": "Opposite",
     "libero": "Libero",
     "defensive specialist": "Libero",
-
-    # higher-level volleyball categories
     "defensive role": "DefensiveRole",
     "playmaker": "Playmaker",
     "attacker": "Attacker",
@@ -92,9 +99,7 @@ POSITION_ALIASES = {
     "back row player": "BackRowPlayer",
 }
 
-# If the left side of "X is Y" is one of these, treat it as a concept/class,
-# so "setter is playmaker" becomes:
-#   all x. (Setter(x) -> Playmaker(x))
+# This list defines which terms should be treated as concepts instead of individual players.
 CONCEPT_TERMS = {
     "setter",
     "middle blocker",
@@ -117,6 +122,7 @@ CONCEPT_TERMS = {
 }
 
 
+# This normalizes free text so it can be matched consistently.
 def normalize_free_text(text: str) -> str:
     text = (text or "").strip().lower()
     text = unicodedata.normalize("NFKD", text)
@@ -126,6 +132,7 @@ def normalize_free_text(text: str) -> str:
     return text
 
 
+# This converts user wording into the canonical predicate form.
 def canonical_predicate(text: str) -> str:
     raw = normalize_free_text(text)
 
@@ -135,59 +142,46 @@ def canonical_predicate(text: str) -> str:
     return safe_predicate(text)
 
 
+# This checks whether a text term is a concept such as a role or category.
 def is_concept_term(text: str) -> bool:
     return normalize_free_text(text) in CONCEPT_TERMS
 
 
+# This splits a sentence of the form X is Y into two parts.
 def split_is_statement(text: str):
-    """
-    Safely split strings like:
-      'Simeon Nikolov is setter'
-      'setter is playmaker'
-    into (left, right).
-    """
     parts = re.split(r"\s+is\s+", text, maxsplit=1, flags=re.IGNORECASE)
     if len(parts) != 2:
         return None, None
     return parts[0].strip(), parts[1].strip()
 
 
+# This builds a logical fact for an individual player or entity.
 def make_fact(obj: str, subj: str):
     predicate = canonical_predicate(subj)
     constant = safe_constant(obj)
     return read_expr(f"{predicate}({constant})")
 
 
+# This builds a logical rule for class-level reasoning.
 def make_rule(left: str, right: str):
     left_pred = canonical_predicate(left)
     right_pred = canonical_predicate(right)
     return read_expr(f"all x. ({left_pred}(x) -> {right_pred}(x))")
 
 
+# This decides whether the input should become a fact or a rule.
 def make_logic_expr(left: str, right: str):
-    """
-    Second reasoning layer:
-    - If left is a concept term, build a taxonomy rule.
-      Example:
-          setter is playmaker
-      becomes:
-          all x. (Setter(x) -> Playmaker(x))
-
-    - Otherwise build a normal fact.
-      Example:
-          Simeon Nikolov is setter
-      becomes:
-          Setter(Simeon_Nikolov)
-    """
     if is_concept_term(left):
         return make_rule(left, right)
     return make_fact(left, right)
 
 
+# This creates the negated version of a logical expression.
 def negate(expr):
     return read_expr(f"-({expr})")
 
 
+# This checks whether a logical expression can be proved from the knowledge base.
 def kb_entails(expr, kb):
     try:
         return prover.prove(expr, kb, verbose=False)
@@ -195,11 +189,13 @@ def kb_entails(expr, kb):
         return False
 
 
+# This checks whether the exact expression already exists in the knowledge base.
 def expr_in_kb(expr, kb):
     return any(str(item) == str(expr) for item in kb)
 
 
-def normalize_logic_row(text: str) -> str:
+# This normalizes KB rows loaded from CSV so they can be parsed correctly.
+def normalize_logic_row(text: str):
     if not isinstance(text, str):
         return text
 
@@ -216,6 +212,7 @@ def normalize_logic_row(text: str) -> str:
     return text
 
 
+# This loads the first-order logic knowledge base from the CSV file.
 def load_kb(csv_path: str):
     knowledge_base = []
     data = pd.read_csv(csv_path, header=None, encoding="utf-8")
@@ -228,6 +225,7 @@ def load_kb(csv_path: str):
     return knowledge_base
 
 
+# This checks the KB for direct positive and negative contradictions at startup.
 def find_explicit_contradictions(kb):
     positive = set()
     negative = set()
@@ -244,6 +242,7 @@ def find_explicit_contradictions(kb):
     return sorted(positive.intersection(negative))
 
 
+# This loads the KB and warns if direct contradictions are found.
 kb = load_kb(KB_FILE)
 contradictions = find_explicit_contradictions(kb)
 
@@ -253,7 +252,9 @@ if contradictions:
         print(" ", contradiction, "and -(" + contradiction + ")")
 
 
+# This class handles CSV-based fallback answers using TF-IDF and cosine similarity.
 class VolleyballQA:
+    # This loads the CSV data and fits the TF-IDF model on the stored questions.
     def __init__(self, csv_file_name="q&a-kb.csv"):
         self.knowledge_base = pd.read_csv(csv_file_name, encoding='utf-8')
         self.stop_words = set(stopwords.words('english'))
@@ -268,6 +269,7 @@ class VolleyballQA:
         self.preprocessed_questions = [self.preprocess_text(q) for q in self.knowledge_base.iloc[:, 0]]
         self.tfidf_matrix = self.vectorizer.fit_transform(self.preprocessed_questions)
 
+    # This cleans and lemmatizes text before similarity matching.
     def preprocess_text(self, text):
         if pd.isna(text) or not isinstance(text, str):
             return ""
@@ -283,6 +285,7 @@ class VolleyballQA:
 
         return ' '.join(processed_words)
 
+    # This returns the answer whose question is most similar to the user input.
     def get_answer(self, user_query, threshold=0.25):
         processed_query = self.preprocess_text(user_query)
 
@@ -300,6 +303,7 @@ class VolleyballQA:
         return None
 
 
+# This classifies a selected image using the trained CNN model.
 def classify_image_file(file_path):
     try:
         img = Image.open(file_path).convert("RGB")
@@ -321,6 +325,7 @@ def classify_image_file(file_path):
         return None, None
 
 
+# This opens a file picker so the user can choose an image.
 def choose_image_file():
     root = Tk()
     root.withdraw()
@@ -338,14 +343,18 @@ def choose_image_file():
     return file_path
 
 
+# This prints the greeting message when the chatbot starts.
 print(
     "Welcome to this chat bot. Please feel free to ask questions from me!\n"
     "I am specifically designed for volleyball questions.\n"
     "If you want to know more about a specific match type in 'Volleyball Match' followed by an ID (e.g. 11500)."
 )
 
+# This creates the similarity-based volleyball question-answer helper.
 volleyball_qa = VolleyballQA("q&a-kb.csv")
 
+
+# This loop keeps the chatbot running until the user exits.
 while True:
     try:
         userInput = input("> ")
@@ -353,12 +362,15 @@ while True:
         print("Bye!")
         break
 
+    # This gets the AIML response for the user's input.
     aiml_response = kern.respond(userInput)
 
+    # This handles AIML commands encoded as #<command>$<parameter>.
     if aiml_response and aiml_response[0] == '#':
         params = aiml_response[1:].split('$')
         cmd = int(params[0])
 
+        # This uses TF-IDF similarity matching when AIML does not know the answer.
         if cmd == 99:
             csv_answer = volleyball_qa.get_answer(userInput)
             if csv_answer:
@@ -366,6 +378,7 @@ while True:
             else:
                 print("I did not get that, please try again.")
 
+        # This fetches volleyball match information from the FIVBVIS API using a match ID.
         elif cmd == 2:
             match_id = params[1]
             try:
@@ -411,6 +424,7 @@ while True:
             except Exception as e:
                 print(f"Sorry, I couldn't find that volleyball match. Error: {e}")
 
+        # This adds new logical knowledge if it is not already known or contradictory.
         elif cmd == 3:
             left, right = split_is_statement(params[1])
 
@@ -428,6 +442,7 @@ while True:
                 kb.append(expr)
                 print(f"OK, I will remember that {left} is {right}.")
 
+        # This checks whether a logical statement is correct, incorrect, or unknown.
         elif cmd == 4:
             left, right = split_is_statement(params[1])
 
@@ -449,6 +464,7 @@ while True:
             else:
                 print("I don't know")
 
+        # This lets the user select an image and classifies it with the CNN model.
         elif cmd == 5:
             file_path = choose_image_file()
             if not file_path:
@@ -461,13 +477,16 @@ while True:
                     pretty_label = label.replace("_", " ")
                     print(f"I think this image contains a {pretty_label} ({confidence:.1%} confidence).")
 
+        # This exits the chatbot when the AIML exit command is triggered.
         elif cmd == 0:
             print(params[1])
             break
 
+        # This prints any other AIML command response directly.
         else:
             print(aiml_response)
 
+    # This uses the CSV similarity fallback when the AIML response is not a command.
     else:
         csv_answer = volleyball_qa.get_answer(userInput)
         if csv_answer:

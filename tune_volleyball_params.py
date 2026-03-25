@@ -1,31 +1,31 @@
+# These imports provide file handling and the TensorFlow tools needed to train and test CNN models.
 import os
 import csv
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
-# -----------------------------
-# Settings
-# -----------------------------
+# These folders contain the training, validation, and test image datasets.
 TRAIN_DIR = "img_Dataset_clean/train"
 VAL_DIR = "img_Dataset_clean/validation"
 TEST_DIR = "img_Dataset_clean/test"
 
+# These files store the tuning results and the best-performing model.
 RESULTS_CSV = "hyperparameter_results.csv"
 BEST_MODEL_PATH = "best_sports_ball_classifier.keras"
 
+# These settings control the maximum training length and TensorFlow input performance.
 EPOCHS = 20
 AUTOTUNE = tf.data.AUTOTUNE
 
-# Hyper-parameter grid
+# These lists define the hyperparameter values that will be tested.
 IMG_SIZES = [128, 160]
 BATCH_SIZES = [16, 32]
 LEARNING_RATES = [0.001, 0.0005, 0.0003]
 DROPOUT_RATES = [0.3, 0.4, 0.5]
 
-# Total runs = len(IMG_SIZES) * len(BATCH_SIZES) * len(LEARNING_RATES) * len(DROPOUT_RATES)
 
-
+# This loads the train, validation, and test datasets for a chosen image size and batch size.
 def load_datasets(img_size, batch_size):
     train_ds = tf.keras.utils.image_dataset_from_directory(
         TRAIN_DIR,
@@ -57,6 +57,7 @@ def load_datasets(img_size, batch_size):
     return train_ds, val_ds, test_ds, class_names
 
 
+# This builds one CNN model using the chosen hyperparameter values.
 def build_model(img_size, num_classes, learning_rate, dropout_rate):
     data_augmentation = keras.Sequential([
         layers.RandomFlip("horizontal"),
@@ -68,16 +69,12 @@ def build_model(img_size, num_classes, learning_rate, dropout_rate):
         keras.Input(shape=(img_size, img_size, 3)),
         data_augmentation,
         layers.Rescaling(1.0 / 255),
-
         layers.Conv2D(32, 3, activation="relu"),
         layers.MaxPooling2D(),
-
         layers.Conv2D(64, 3, activation="relu"),
         layers.MaxPooling2D(),
-
         layers.Conv2D(128, 3, activation="relu"),
         layers.MaxPooling2D(),
-
         layers.Flatten(),
         layers.Dense(128, activation="relu"),
         layers.Dropout(dropout_rate),
@@ -95,6 +92,7 @@ def build_model(img_size, num_classes, learning_rate, dropout_rate):
     return model
 
 
+# This runs one full training and evaluation experiment for a single parameter combination.
 def run_experiment(img_size, batch_size, learning_rate, dropout_rate):
     print("\n" + "=" * 70)
     print(
@@ -114,12 +112,14 @@ def run_experiment(img_size, batch_size, learning_rate, dropout_rate):
         dropout_rate=dropout_rate
     )
 
+    # This stops training early if validation loss no longer improves.
     early_stopping = keras.callbacks.EarlyStopping(
         monitor="val_loss",
         patience=4,
         restore_best_weights=True
     )
 
+    # This reduces the learning rate when validation loss stops improving.
     reduce_lr = keras.callbacks.ReduceLROnPlateau(
         monitor="val_loss",
         factor=0.5,
@@ -167,6 +167,7 @@ def run_experiment(img_size, batch_size, learning_rate, dropout_rate):
     return result
 
 
+# This saves the summary of all hyperparameter experiments to a CSV file.
 def save_results_csv(results, csv_path):
     fieldnames = [
         "img_size",
@@ -192,6 +193,7 @@ def save_results_csv(results, csv_path):
             writer.writerow(row)
 
 
+# This tests all parameter combinations, saves the best model, and writes the results file.
 def main():
     all_results = []
     best_result = None
@@ -211,12 +213,9 @@ def main():
 
                     if best_result is None or result["best_val_accuracy"] > best_result["best_val_accuracy"]:
                         best_result = result
-
-                        # Save best-so-far model
                         result["model"].save(BEST_MODEL_PATH)
                         print(f"Saved new best model to {BEST_MODEL_PATH}")
 
-    # Save all results
     save_results_csv(all_results, RESULTS_CSV)
 
     print("\n" + "=" * 70)
@@ -236,5 +235,6 @@ def main():
     )
 
 
+# This runs the hyperparameter search when the file is executed directly.
 if __name__ == "__main__":
     main()
